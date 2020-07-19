@@ -10,8 +10,8 @@
 package org.openmrs.web.filter.startuperror;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -21,6 +21,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.openmrs.web.Listener;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -30,6 +31,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(Listener.class)
+@PowerMockIgnore({"com.sun.org.apache.xerces.*", "javax.xml.*", "org.xml.*", "javax.management.*", "org.w3c.dom.*"})
 public class StartupErrorFilterTest {
 	
 	@Before
@@ -45,7 +47,7 @@ public class StartupErrorFilterTest {
 		
 		StartupErrorFilter filter = new StartupErrorFilter();
 		
-		StartupErrorFilterModel model = filter.getModel();
+		StartupErrorFilterModel model = filter.getUpdateFilterModel();
 		
 		assertThat(model.errorAtStartup, is(t));
 	}

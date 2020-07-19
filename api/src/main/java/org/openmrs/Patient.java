@@ -9,14 +9,22 @@
  */
 package org.openmrs;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Set;
 import java.util.TreeSet;
 
+import javax.persistence.Access;
+import javax.persistence.AccessType;
+import javax.persistence.Column;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+
 import org.hibernate.search.annotations.ContainedIn;
+import org.hibernate.search.annotations.Field;
 
 /**
  * Defines a Patient in the system. A patient is simply an extension of a person and all that that
@@ -27,13 +35,14 @@ import org.hibernate.search.annotations.ContainedIn;
 public class Patient extends Person {
 	
 	public static final long serialVersionUID = 93123L;
-
+	
 	private Integer patientId;
-
+	
 	private String allergyStatus = Allergies.UNKNOWN;
-
+	
 	@ContainedIn
 	private Set<PatientIdentifier> identifiers;
+
 	
 	// Constructors
 	
@@ -72,16 +81,15 @@ public class Patient extends Person {
 		this.patientId = patientId;
 		setPatient(true);
 	}
-
+	
 	/**
 	 * This constructor creates a new Patient object from the given {@link Patient} object. All
-	 * attributes are copied over to the new object. In effect creating a clone/duplicate.
-	 * <br>
+	 * attributes are copied over to the new object. In effect creating a clone/duplicate. <br>
 	 *
 	 * @param patient the person object to copy onto a new Patient
 	 * @since 2.2.0
 	 */
-	public Patient(Patient patient){
+	public Patient(Patient patient) {
 		super(patient);
 		this.patientId = patient.getPatientId();
 		this.allergyStatus = patient.getAllergyStatus();
@@ -100,6 +108,9 @@ public class Patient extends Person {
 	 * @return internal identifier for patient
 	 */
 	public Integer getPatientId() {
+		if (this.patientId == null) {
+			this.patientId = getPersonId();
+		}
 		return this.patientId;
 	}
 	
@@ -119,19 +130,19 @@ public class Patient extends Person {
 	 * 
 	 * @return current allargy status for patient
 	 * @since 2.0
-	 * @should return allergy status maintained by the supporting infrastructure
+	 * <strong>Should</strong> return allergy status maintained by the supporting infrastructure
 	 */
 	public String getAllergyStatus() {
 		return this.allergyStatus;
 	}
 	
 	/**
-	 * Sets the allergy status for a patient. <b>This should never be called directly</b>. 
-	 * It should reflect allergy status maintained by the supporting infrastructure.
+	 * Sets the allergy status for a patient. <b>This should never be called directly</b>. It should
+	 * reflect allergy status maintained by the supporting infrastructure.
 	 * 
 	 * @param allergyStatus
 	 * @since 2.0
-	 * @should not be called by service client
+	 * <strong>Should</strong> not be called by service client
 	 */
 	public void setAllergyStatus(String allergyStatus) {
 		this.allergyStatus = allergyStatus;
@@ -148,7 +159,7 @@ public class Patient extends Person {
 		super.setPersonId(personId);
 		this.patientId = personId;
 	}
-
+	
 	/**
 	 * Get all of this patients identifiers -- both voided and non-voided ones. If you want only
 	 * non-voided identifiers, use {@link #getActiveIdentifiers()}
@@ -156,7 +167,7 @@ public class Patient extends Person {
 	 * @return Set of all known identifiers for this patient
 	 * @see org.openmrs.PatientIdentifier
 	 * @see #getActiveIdentifiers()
-	 * @should not return null
+	 * <strong>Should</strong> not return null
 	 */
 	public Set<PatientIdentifier> getIdentifiers() {
 		if (identifiers == null) {
@@ -168,13 +179,14 @@ public class Patient extends Person {
 	/**
 	 * Update all identifiers for patient
 	 * 
-	 * @param identifiers Set&lt;PatientIdentifier&gt; to set as update all known identifiers for patient
+	 * @param identifiers Set&lt;PatientIdentifier&gt; to set as update all known identifiers for
+	 *            patient
 	 * @see org.openmrs.PatientIdentifier
 	 */
 	public void setIdentifiers(Set<PatientIdentifier> identifiers) {
 		this.identifiers = identifiers;
 	}
-	
+
 	/**
 	 * Adds this PatientIdentifier if the patient doesn't contain it already
 	 * 
@@ -195,9 +207,9 @@ public class Patient extends Person {
 	 * Will add this PatientIdentifier if the patient doesn't contain it already
 	 * 
 	 * @param patientIdentifier
-	 * @should not fail with null identifiers list
-	 * @should add identifier to current list
-	 * @should not add identifier that is in list already
+	 * <strong>Should</strong> not fail with null identifiers list
+	 * <strong>Should</strong> add identifier to current list
+	 * <strong>Should</strong> not add identifier that is in list already
 	 */
 	public void addIdentifier(PatientIdentifier patientIdentifier) {
 		if (patientIdentifier != null) {
@@ -207,7 +219,7 @@ public class Patient extends Person {
 			for (PatientIdentifier currentId : getActiveIdentifiers()) {
 				if (currentId.equalsContent(patientIdentifier)) {
 					// fail silently if someone tries to add a duplicate
-					return; 
+					return;
 				}
 			}
 		}
@@ -220,7 +232,7 @@ public class Patient extends Person {
 	 * <code>patientIdentifier</code> is null, nothing is done.
 	 * 
 	 * @param patientIdentifier the identifier to remove
-	 * @should remove identifier if exists
+	 * <strong>Should</strong> remove identifier if exists
 	 */
 	public void removeIdentifier(PatientIdentifier patientIdentifier) {
 		if (patientIdentifier != null) {
@@ -332,7 +344,7 @@ public class Patient extends Person {
 	 * 
 	 * @return list of non-voided identifiers for this patient
 	 * @see #getIdentifiers()
-	 * @should return preferred identifiers first in the list
+	 * <strong>Should</strong> return preferred identifiers first in the list
 	 */
 	public List<PatientIdentifier> getActiveIdentifiers() {
 		List<PatientIdentifier> ids = new ArrayList<>();
@@ -400,4 +412,5 @@ public class Patient extends Person {
 	public Person getPerson() {
 		return this;
 	}
+	
 }

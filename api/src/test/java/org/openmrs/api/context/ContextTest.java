@@ -9,12 +9,18 @@
  */
 package org.openmrs.api.context;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.Locale;
 
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 import org.openmrs.Location;
 import org.openmrs.Person;
 import org.openmrs.PersonName;
@@ -24,7 +30,7 @@ import org.openmrs.api.PatientService;
 import org.openmrs.api.UserService;
 import org.openmrs.api.handler.EncounterVisitHandler;
 import org.openmrs.api.handler.ExistingOrNewVisitAssignmentHandler;
-import org.openmrs.test.BaseContextSensitiveTest;
+import org.openmrs.test.jupiter.BaseContextSensitiveTest;
 import org.openmrs.util.LocaleUtility;
 import org.openmrs.util.OpenmrsConstants;
 import org.springframework.validation.Validator;
@@ -40,7 +46,7 @@ public class ContextTest extends BaseContextSensitiveTest {
 	 * Methods in this class might authenticate with a different user, so log that user out after
 	 * this whole junit class is done.
 	 */
-	@AfterClass
+	@AfterAll
 	public static void logOutAfterThisTestClass() {
 		Context.logout();
 	}
@@ -48,73 +54,41 @@ public class ContextTest extends BaseContextSensitiveTest {
 	/**
 	 * @see Context#authenticate(String,String)
 	 */
-	@Test(expected = ContextAuthenticationException.class)
+	@Test
 	public void authenticate_shouldNotAuthenticateWithNullPassword() {
-		Context.authenticate("some username", null);
+		assertThrows(ContextAuthenticationException.class, () -> Context.authenticate("some username", null));
 	}
 	
 	/**
 	 * @see Context#authenticate(String,String)
 	 */
-	@Test(expected = ContextAuthenticationException.class)
+	@Test
 	public void authenticate_shouldNotAuthenticateWithNullPasswordAndProperSystemId() {
-		Context.authenticate("1-8", null);
+		assertThrows(ContextAuthenticationException.class, () -> Context.authenticate("1-8", null));
 	}
 	
 	/**
 	 * @see Context#authenticate(String,String)
 	 */
-	@Test(expected = ContextAuthenticationException.class)
+	@Test
 	public void authenticate_shouldNotAuthenticateWithNullPasswordAndProperUsername() {
-		Context.authenticate("admin", null);
+		assertThrows(ContextAuthenticationException.class, () -> Context.authenticate("admin", null));
 	}
 	
 	/**
 	 * @see Context#authenticate(String,String)
 	 */
-	@Test(expected = ContextAuthenticationException.class)
+	@Test
 	public void authenticate_shouldNotAuthenticateWithNullUsername() {
-		Context.authenticate(null, "some password");
+		assertThrows(ContextAuthenticationException.class, () -> Context.authenticate(null, "some password"));
 	}
 	
 	/**
 	 * @see Context#authenticate(String,String)
 	 */
-	@Test(expected = ContextAuthenticationException.class)
+	@Test
 	public void authenticate_shouldNotAuthenticateWithNullUsernameAndPassword() {
-		Context.authenticate((String) null, (String) null);
-	}
-	
-	/**
-	 * @see Context#authenticate(AuthenticationScheme, Credentials)
-	 */
-	@Test(expected = ContextAuthenticationException.class)
-	public void authenticate_shouldNotAuthenticateWithNullCredentials() {
-		Context.authenticate(new UsernamePasswordAuthenticationScheme(), null);
-	}
-	
-	/**
-	 * @see Context#authenticate(AuthenticationScheme, Credentials)
-	 */
-	@Test(expected = ContextAuthenticationException.class)
-	public void authenticate_shouldNotAuthenticateWithNullAuthenticationScheme() {
-		Context.authenticate(null, new UsernamePasswordCredentials("admin", "test"));
-	}
-	
-	/**
-	 * @see Context#authenticate(String,String)
-	 */
-	@Test(expected = ContextAuthenticationException.class)
-	public void authenticate_shouldNotAuthenticateWithNullCredentialsAndAuthenticationScheme() {
-		Context.authenticate((AuthenticationScheme) null, (Credentials) null);
-	}
-	
-	/**
-	 * @see Context#authenticate(AuthenticationScheme, Credentials)
-	 */
-	@Test(expected = ContextAuthenticationException.class)
-	public void authenticate_shouldThrowWhenUnfitCredentials() {
-		Context.authenticate(new UsernamePasswordAuthenticationScheme(), new TestUuidCredentials("c1d8f5c2-e131-11de-babe-001e378eb67e"));
+		assertThrows(ContextAuthenticationException.class, () -> Context.authenticate((String) null, (String) null));
 	}
 	
 	/**
@@ -125,29 +99,9 @@ public class ContextTest extends BaseContextSensitiveTest {
 		// replay
 		Context.logout();
 		Context.authenticate("admin", "test");
-		String userUuid = Context.getAuthenticatedUser().getUuid();
-		
-		Context.logout();
-		Authenticated authenticated = Context.authenticate(new UsernamePasswordAuthenticationScheme(), new UsernamePasswordCredentials("admin", "test"));
 		
 		// verif
-		Assert.assertEquals(UsernamePasswordCredentials.SCHEME, authenticated.getAuthenticationScheme());
-		Assert.assertEquals(userUuid, Context.getAuthenticatedUser().getUuid());
-	}
-	
-	/**
-	 * @see Context#authenticate(AuthenticationScheme, Credentials)
-	 */
-	@Test
-	public void authenticate_shouldAuthenticateUserWithAlternateScheme() {
-		// replay
-		Context.logout();
-		Authenticated authenticated = Context.authenticate(new TestUuidAuthenticationScheme(), new TestUuidCredentials("c1d8f5c2-e131-11de-babe-001e378eb67e"));
-		
-		// verif
-		Assert.assertEquals("test-scheme", authenticated.getAuthenticationScheme());
-		Assert.assertEquals(Context.getAuthenticatedUser().getUuid(), authenticated.getUser().getUuid());
-		Assert.assertEquals("c1d8f5c2-e131-11de-babe-001e378eb67e", Context.getAuthenticatedUser().getUuid());
+		assertEquals("admin", Context.getAuthenticatedUser().getUsername());
 	}
 	
 	/**
@@ -156,16 +110,16 @@ public class ContextTest extends BaseContextSensitiveTest {
 	@Test
 	public void getLocale_shouldNotFailIfSessionHasntBeenOpened() {
 		Context.closeSession();
-		Assert.assertEquals(LocaleUtility.getDefaultLocale(), Context.getLocale());
+		assertEquals(LocaleUtility.getDefaultLocale(), Context.getLocale());
 	}
 	
 	/**
 	 * @see Context#getUserContext()
 	 */
-	@Test(expected = APIException.class)
+	@Test
 	public void getUserContext_shouldFailIfSessionHasntBeenOpened() {
 		Context.closeSession();
-		Context.getUserContext(); // trigger the api exception
+		assertThrows(APIException.class, () -> Context.getUserContext()); // trigger the api exception
 	}
 	
 	/**
@@ -182,9 +136,9 @@ public class ContextTest extends BaseContextSensitiveTest {
 	 */
 	@Test
 	public void isSessionOpen_shouldReturnTrueIfSessionIsClosed() {
-		Assert.assertTrue(Context.isSessionOpen());
+		assertTrue(Context.isSessionOpen());
 		Context.closeSession();
-		Assert.assertFalse(Context.isSessionOpen());
+		assertFalse(Context.isSessionOpen());
 	}
 	
 	/**
@@ -201,11 +155,11 @@ public class ContextTest extends BaseContextSensitiveTest {
 		Context.getUserService().saveUser(fetchedUser);
 		
 		// sanity check to make sure the cached object wasn't updated already
-		Assert.assertNotSame(Context.getAuthenticatedUser().getGivenName(), fetchedUser.getGivenName());
+		assertNotSame(Context.getAuthenticatedUser().getGivenName(), fetchedUser.getGivenName());
 		
 		Context.refreshAuthenticatedUser();
 		
-		Assert.assertEquals("new username", Context.getAuthenticatedUser().getGivenName());
+		assertEquals("new username", Context.getAuthenticatedUser().getGivenName());
 	}
 	
 	/**
@@ -214,8 +168,8 @@ public class ContextTest extends BaseContextSensitiveTest {
 	@Test
 	public void getRegisteredComponents_shouldReturnAListOfAllRegisteredBeansOfThePassedType() {
 		List<Validator> validators = Context.getRegisteredComponents(Validator.class);
-		Assert.assertTrue(validators.size() > 0);
-		Assert.assertTrue(Validator.class.isAssignableFrom(validators.iterator().next().getClass()));
+		assertTrue(validators.size() > 0);
+		assertTrue(Validator.class.isAssignableFrom(validators.iterator().next().getClass()));
 	}
 	
 	/**
@@ -224,8 +178,8 @@ public class ContextTest extends BaseContextSensitiveTest {
 	@Test
 	public void getRegisteredComponents_shouldReturnAnEmptyListIfNoBeansHaveBeenRegisteredOfThePassedType() {
 		List<Location> l = Context.getRegisteredComponents(Location.class);
-		Assert.assertNotNull(l);
-		Assert.assertEquals(0, l.size());
+		assertNotNull(l);
+		assertEquals(0, l.size());
 	}
 	
 	/**
@@ -237,19 +191,17 @@ public class ContextTest extends BaseContextSensitiveTest {
 		EncounterVisitHandler registeredComponent = Context.getRegisteredComponent("existingOrNewVisitAssignmentHandler",
 		    EncounterVisitHandler.class);
 		
-		Assert.assertTrue(registeredComponent instanceof ExistingOrNewVisitAssignmentHandler);
+		assertTrue(registeredComponent instanceof ExistingOrNewVisitAssignmentHandler);
 	}
 	
 	/**
 	 * @see Context#getRegisteredComponent(String, Class)
 	 */
-	@Test(expected = APIException.class)
+	@Test
 	public void getRegisteredComponent_shouldFailIfBeanHaveBeenREgisteredOfThePassedTypeAndNameDoesntExist()
 	{
+		assertThrows(APIException.class, () -> Context.getRegisteredComponent("invalidBeanName", EncounterVisitHandler.class));
 		
-		Context.getRegisteredComponent("invalidBeanName", EncounterVisitHandler.class);
-		
-		Assert.fail();
 	}
 	
 	/**
@@ -262,7 +214,7 @@ public class ContextTest extends BaseContextSensitiveTest {
 	public void getService_shouldReturnTheSameObjectWhenCalledMultipleTimesForTheSameClass() {
 		PatientService ps1 = Context.getService(PatientService.class);
 		PatientService ps2 = Context.getService(PatientService.class);
-		Assert.assertTrue(ps1 == ps2);
+		assertEquals(ps2, ps1);
 	}
 	
 	/**
@@ -281,8 +233,8 @@ public class ContextTest extends BaseContextSensitiveTest {
 		Context.becomeUser(user.getSystemId());
 		
 		Locale locale = Context.getLocale();
-		Assert.assertEquals("pt", locale.getLanguage());
-		Assert.assertEquals("BR", locale.getCountry());
+		assertEquals("pt", locale.getLanguage());
+		assertEquals("BR", locale.getCountry());
 		
 		Context.logout();
 	}

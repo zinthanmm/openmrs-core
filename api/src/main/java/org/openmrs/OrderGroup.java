@@ -35,6 +35,12 @@ public class OrderGroup extends BaseChangeableOpenmrsData {
 	
 	private OrderSet orderSet;
 	
+	private OrderGroup parentOrderGroup;
+
+	private Concept orderGroupReason;
+
+	private OrderGroup previousOrderGroup;
+
 	/**
 	 * Gets the orderGroupId
 	 *
@@ -208,4 +214,67 @@ public class OrderGroup extends BaseChangeableOpenmrsData {
 		setOrderGroupId(id);
 	}
 	
+	/**
+	 * Gets the parent order group to maintain linkages between groups and support group nesting
+	 * 
+	 * @return the parent order group
+	 * @since 2.4.0
+	 */
+	public OrderGroup getParentOrderGroup() {
+		return parentOrderGroup;
+	}
+	
+	/**
+	 * Sets the parent order group to maintain linkages between groups and support group nesting
+	 * 
+	 * @param parentOrderGroup the parent order group to set.
+	 * @since 2.4.0
+	 */
+	public void setParentOrderGroup(OrderGroup parentOrderGroup) {
+		this.parentOrderGroup = parentOrderGroup;
+	}
+
+	/**
+	 * Gets the order group reason which denotes the reason why the group was
+	 * ordered
+	 * 
+	 * @return the order group reason
+	 * @since 2.4.0
+	 */
+	public Concept getOrderGroupReason() {
+		return orderGroupReason;
+	}
+
+	/**
+	 * Sets the order group reason which denotes the reason why the group was
+	 * ordered
+	 * 
+	 * @param orderGroupReason, the order group reason to set
+	 * @since 2.4.0
+	 */
+	public void setOrderGroupReason(Concept orderGroupReason) {
+		this.orderGroupReason = orderGroupReason;
+	}
+	
+	/**
+	 * Gets the previous order group to other order groups, to maintain linkages
+	 * between groups and support group nesting
+	 * 
+	 * @param returns the previous order group
+	 * @since 2.4.0
+	 */
+	public OrderGroup getPreviousOrderGroup() {
+		return previousOrderGroup;
+	}
+
+	/**
+	 * Sets the previous order group to other order groups, to maintain linkages
+	 * between groups and support group nesting
+	 * 
+	 * @param previousOrderGroup The previous order group to set
+	 * @since 2.4.0
+	 */
+	public void setPreviousOrderGroup(OrderGroup previousOrderGroup) {
+		this.previousOrderGroup = previousOrderGroup;
+	}
 }

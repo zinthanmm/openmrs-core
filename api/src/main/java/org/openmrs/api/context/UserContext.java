@@ -80,27 +80,34 @@ public class UserContext implements Serializable {
 	private Integer locationId;
 	
 	/**
-	 * Default public constructor
+	 * The authentication scheme for this user
 	 */
-	public UserContext() {
+	private AuthenticationScheme authenticationScheme;
+	
+	/**
+	 * Creates a user context based on the provided auth. scheme.
+	 * 
+	 * @param authenticationScheme The auth. scheme that applies for this user context.
+	 * 
+	 * @since 2.3.0
+	 */
+	public UserContext(AuthenticationScheme authenticationScheme) {
+		this.authenticationScheme = authenticationScheme; 
 	}
 	
 	/**
-	 * Authenticate user with the provided authentication scheme and credentials.
+	 * Authenticate user with the provided credentials. The authentication scheme must be Spring wired, see {@link Context#getAuthenticationScheme()}.
 	 * 
-	 * @param The authentication scheme to use
-	 * @param The credentials to use to authenticate
+	 * @param credentials The credentials to use to authenticate
 	 * @return The authenticated client information
 	 * @throws ContextAuthenticationException
 	 * 
 	 * @since 2.3.0
 	 */
-	public Authenticated authenticate(AuthenticationScheme authenticationScheme, Credentials credentials)
+	public Authenticated authenticate(Credentials credentials)
 			throws ContextAuthenticationException {
 
-		if (log.isDebugEnabled()) {
-			log.debug("Authenticating client '" + credentials.getClientName() + "' with sheme: " + credentials.getAuthenticationScheme());
-		}
+		log.debug("Authenticating client '" + credentials.getClientName() + "' with sheme: " + credentials.getAuthenticationScheme());
 
 		Authenticated authenticated = null;
 		try {
@@ -117,9 +124,7 @@ public class UserContext implements Serializable {
 		
 		setUserLocation();
 		
-		if (log.isDebugEnabled()) {
-			log.debug("Authenticated as: " + this.user);
-		}
+		log.debug("Authenticated as: " + this.user);
 		
 		return authenticated;
 	}
@@ -277,10 +282,10 @@ public class UserContext implements Serializable {
 	 *
 	 * @param user
 	 * @return all expanded roles for a user
-	 * @should not fail with null user
-	 * @should add anonymous role to all users
-	 * @should add authenticated role to all authenticated users
-	 * @should return same roles as user getAllRoles method
+	 * <strong>Should</strong> not fail with null user
+	 * <strong>Should</strong> add anonymous role to all users
+	 * <strong>Should</strong> add authenticated role to all authenticated users
+	 * <strong>Should</strong> return same roles as user getAllRoles method
 	 */
 	public Set<Role> getAllRoles(User user) throws Exception {
 		Set<Role> roles = new HashSet<>();
@@ -302,14 +307,14 @@ public class UserContext implements Serializable {
 	 *
 	 * @param privilege
 	 * @return true if authenticated user has given privilege
-	 * @should authorize if authenticated user has specified privilege
-	 * @should authorize if authenticated role has specified privilege
-	 * @should authorize if proxied user has specified privilege
-	 * @should authorize if anonymous user has specified privilege
-	 * @should not authorize if authenticated user does not have specified privilege
-	 * @should not authorize if authenticated role does not have specified privilege
-	 * @should not authorize if proxied user does not have specified privilege
-	 * @should not authorize if anonymous user does not have specified privilege
+	 * <strong>Should</strong> authorize if authenticated user has specified privilege
+	 * <strong>Should</strong> authorize if authenticated role has specified privilege
+	 * <strong>Should</strong> authorize if proxied user has specified privilege
+	 * <strong>Should</strong> authorize if anonymous user has specified privilege
+	 * <strong>Should</strong> not authorize if authenticated user does not have specified privilege
+	 * <strong>Should</strong> not authorize if authenticated role does not have specified privilege
+	 * <strong>Should</strong> not authorize if proxied user does not have specified privilege
+	 * <strong>Should</strong> not authorize if anonymous user does not have specified privilege
 	 */
 	public boolean hasPrivilege(String privilege) {
 		
@@ -347,7 +352,7 @@ public class UserContext implements Serializable {
 	 * Convenience method to get the Role in the system designed to be given to all users
 	 *
 	 * @return Role
-	 * @should fail if database doesn't contain anonymous role
+	 * <strong>Should</strong> fail if database doesn't contain anonymous role
 	 */
 	private Role getAnonymousRole() {
 		if (anonymousRole != null) {
@@ -367,7 +372,7 @@ public class UserContext implements Serializable {
 	 * authenticated in some manner
 	 *
 	 * @return Role
-	 * @should fail if database doesn't contain authenticated role
+	 * <strong>Should</strong> fail if database doesn't contain authenticated role
 	 */
 	private Role getAuthenticatedRole() {
 		if (authenticatedRole != null) {

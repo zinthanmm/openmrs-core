@@ -80,6 +80,9 @@ import org.openmrs.validator.ValidateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.Advisor;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 
 /**
  * Represents an OpenMRS <code>Context</code>, which may be used to authenticate to the database and
@@ -146,6 +149,8 @@ public class Context {
 
 	private static Properties configProperties = new Properties();
 
+	private static AuthenticationScheme authenticationScheme;
+
 	/**
 	 * Default public constructor
 	 */
@@ -178,13 +183,35 @@ public class Context {
 	}
 
 	/**
+	 * Spring init method that sets the authentication scheme.
+	 */
+	static private void setAuthenticationScheme() {
+
+		authenticationScheme = new UsernamePasswordAuthenticationScheme();
+
+		try {
+			authenticationScheme = Context.getServiceContext().getApplicationContext().getBean(AuthenticationScheme.class); // manual autowiring (from a module)
+			log.info("An authentication scheme override was provided. Using this one in place of the OpenMRS default authentication scheme.");
+		}
+		catch(NoUniqueBeanDefinitionException e) {
+			log.error("Multiple authentication schemes overrides are being provided, this is currently not supported. Sticking to OpenMRS default authentication scheme.");
+		}
+		catch(NoSuchBeanDefinitionException e) {
+			log.debug("No authentication scheme override was provided. Sticking to OpenMRS default authentication scheme.");
+		}
+		catch(BeansException e){
+			log.error("Fatal error encountered when injecting the authentication scheme override. Sticking to OpenMRS default authentication scheme.");
+		}
+	}
+
+	/**
 	 * Loads a class with an instance of the OpenmrsClassLoader. Convenience method equivalent to
 	 * OpenmrsClassLoader.getInstance().loadClass(className);
 	 *
 	 * @param className the class to load
 	 * @return the class that was loaded
 	 * @throws ClassNotFoundException
-	 * @should load class with the OpenmrsClassLoader
+	 * <strong>Should</strong> load class with the OpenmrsClassLoader
 	 */
 	public static Class<?> loadClass(String className) throws ClassNotFoundException {
 		return OpenmrsClassLoader.getInstance().loadClass(className);
@@ -219,7 +246,7 @@ public class Context {
 	 * same time.
 	 *
 	 * @return The current UserContext for this thread.
-	 * @should fail if session hasn't been opened
+	 * <strong>Should</strong> fail if session hasn't been opened
 	 */
 	public static UserContext getUserContext() {
 		Object[] arr = userContextHolder.get();
@@ -228,7 +255,7 @@ public class Context {
 		if (arr == null) {
 			log.trace("userContext is null.");
 			throw new APIException(
-			        "A user context must first be passed to setUserContext()...use Context.openSession() (and closeSession() to prevent memory leaks!) before using the API");
+					"A user context must first be passed to setUserContext()...use Context.openSession() (and closeSession() to prevent memory leaks!) before using the API");
 		}
 		return (UserContext) userContextHolder.get()[0];
 	}
@@ -267,65 +294,64 @@ public class Context {
 	}
 
 	/**
-	 * @deprecated as of 2.3.0, replaced by #authenticate(AuthenticationScheme, Credentials)
+	 * OpenMRS provides its default authentication scheme that authenticates via DAO with OpenMRS usernames and passwords.
+	 * 
+	 * Any module can provide an authentication scheme override by Spring wiring a custom implementation of {@link AuthenticationScheme}.
+	 * This method would return Core's default authentication scheme unless a Spring override is provided somewhere else.
+	 * 
+	 * @return The enforced authentication scheme.
+	 */
+	public static AuthenticationScheme getAuthenticationScheme() {
+		return authenticationScheme;
+	}
+
+	/**
+	 * @deprecated as of 2.3.0, replaced by {@link #authenticate(Credentials)}
 	 * 
 	 * Used to authenticate user within the context
 	 *
 	 * @param username user's identifier token for login
 	 * @param password user's password for authenticating to context
 	 * @throws ContextAuthenticationException
-	 * @should not authenticate with null username and password
-	 * @should not authenticate with null password
-	 * @should not authenticate with null username
-	 * @should not authenticate with null password and proper username
-	 * @should not authenticate with null password and proper system id
+	 * <strong>Should</strong> not authenticate with null username and password
+	 * <strong>Should</strong> not authenticate with null password
+	 * <strong>Should</strong> not authenticate with null username
+	 * <strong>Should</strong> not authenticate with null password and proper username
+	 * <strong>Should</strong> not authenticate with null password and proper system id
 	 */
 	@Deprecated
 	public static void authenticate(String username, String password) throws ContextAuthenticationException {
-		authenticate( new UsernamePasswordAuthenticationScheme(), new UsernamePasswordCredentials(username, password) );
+		authenticate(new UsernamePasswordCredentials(username, password));
 	}
 
 	/**
-	 * Authenticate user within the context with the provided authentication scheme and credentials.
-	 * 
-	 * @param The authentication scheme to use
-	 * @param The credentials to use to authenticate
-	 * @return The authenticated client information
+	 * @param credentials
 	 * @throws ContextAuthenticationException
 	 * 
 	 * @since 2.3.0
 	 */
-	public static Authenticated authenticate(AuthenticationScheme authenticationScheme, Credentials credentials)
-			throws ContextAuthenticationException {
-		
+	public static Authenticated authenticate(Credentials credentials) throws ContextAuthenticationException {
+
 		if (Daemon.isDaemonThread()) {
 			log.error("Authentication attempted while operating on a "
 					+ "daemon thread, authenticating is not necessary or allowed");
 			return new BasicAuthenticated(Daemon.getDaemonThreadUser(), "No auth scheme used by Context - Daemon user is always authenticated.");
 		}
-		
+
 		if (credentials == null) {
 			throw new ContextAuthenticationException("Context cannot authenticate with null credentials.");
 		}
-			
-		if (authenticationScheme == null) {
-			throw new ContextAuthenticationException("Context cannot authenticate with null authentication scheme.");
-		}
-		
-		if (authenticationScheme instanceof DaoAuthenticationScheme) {
-			((DaoAuthenticationScheme) authenticationScheme).setContextDao(getContextDAO());
-		}
-		
-		return getUserContext().authenticate(authenticationScheme, credentials);
+
+		return getUserContext().authenticate(credentials);
 	}
-	
+
 	/**
 	 * Refresh the authenticated user object in the current UserContext. This should be used when
 	 * updating information in the database about the current user and it needs to be reflecting in
 	 * the (cached) {@link #getAuthenticatedUser()} User object.
 	 *
 	 * @since 1.5
-	 * @should get fresh values from the database
+	 * <strong>Should</strong> get fresh values from the database
 	 */
 	public static void refreshAuthenticatedUser() {
 		if (Daemon.isDaemonThread()) {
@@ -341,7 +367,7 @@ public class Context {
 	 *
 	 * @param systemId
 	 * @throws ContextAuthenticationException
-	 * @should change locale when become another user
+	 * <strong>Should</strong> change locale when become another user
 	 */
 	public static void becomeUser(String systemId) throws ContextAuthenticationException {
 		log.info("systemId: {}", systemId);
@@ -642,7 +668,7 @@ public class Context {
 	 * logs out the "active" (authenticated) user within context
 	 *
 	 * @see #authenticate
-	 * @should not fail if session hasn't been opened yet
+	 * <strong>Should</strong> not fail if session hasn't been opened yet
 	 */
 	public static void logout() {
 		if (!isSessionOpen()) {
@@ -654,7 +680,7 @@ public class Context {
 
 		// reset the UserContext object (usually cleared out by closeSession()
 		// soon after this)
-		setUserContext(new UserContext());
+		setUserContext(new UserContext(getAuthenticationScheme()));
 	}
 
 	/**
@@ -667,7 +693,7 @@ public class Context {
 	/**
 	 * Convenience method. Passes through to userContext.hasPrivilege(String)
 	 *
-	 * @should give daemon user full privileges
+	 * <strong>Should</strong> give daemon user full privileges
 	 */
 	public static boolean hasPrivilege(String privilege) {
 		// the daemon threads have access to all things
@@ -690,7 +716,7 @@ public class Context {
 			String errorMessage;
 			if (StringUtils.isNotBlank(privilege)) {
 				errorMessage = Context.getMessageSourceService().getMessage("error.privilegesRequired",
-				    new Object[] { privilege }, null);
+						new Object[] { privilege }, null);
 			} else {
 				//Should we even be here if the privilege is blank?
 				errorMessage = Context.getMessageSourceService().getMessage("error.privilegesRequiredNoArgs");
@@ -724,7 +750,7 @@ public class Context {
 	/**
 	 * Convenience method. Passes through to {@link UserContext#getLocale()}
 	 *
-	 * @should not fail if session hasn't been opened
+	 * <strong>Should</strong> not fail if session hasn't been opened
 	 */
 	public static Locale getLocale() {
 		// if a session hasn't been opened, just fetch the default
@@ -741,7 +767,7 @@ public class Context {
 	 */
 	public static void openSession() {
 		log.trace("opening session");
-		setUserContext(new UserContext()); // must be cleared out in
+		setUserContext(new UserContext(getAuthenticationScheme())); // must be cleared out in
 		// closeSession()
 		getContextDAO().openSession();
 	}
@@ -776,7 +802,7 @@ public class Context {
 	 */
 	public static void closeSessionWithCurrentUser() {
 		getContextDAO().closeSession();
-    }
+	}
 
 	/**
 	 * Clears cached changes made so far during this unit of work without writing them to the
@@ -804,7 +830,7 @@ public class Context {
 	 *
 	 * @return true if {@link #openSession()} has been called already.
 	 * @since 1.5
-	 * @should return true if session is closed
+	 * <strong>Should</strong> return true if session is closed
 	 */
 	public static boolean isSessionOpen() {
 		return userContextHolder.get() != null;
@@ -845,7 +871,7 @@ public class Context {
 	 *      the required question/datatypes
 	 */
 	public static synchronized void startup(Properties props) throws DatabaseUpdateException, InputRequiredException,
-	        ModuleMustStartException {
+	ModuleMustStartException {
 		// do any context database specific startup
 		getContextDAO().startup(props);
 
@@ -889,7 +915,7 @@ public class Context {
 	 *      the required question/datatypes
 	 */
 	public static synchronized void startup(String url, String username, String password, Properties properties)
-	        throws DatabaseUpdateException, InputRequiredException, ModuleMustStartException {
+			throws DatabaseUpdateException, InputRequiredException, ModuleMustStartException {
 		if (properties == null) {
 			properties = new Properties();
 		}
@@ -954,7 +980,7 @@ public class Context {
 	 *
 	 * @param cls The Class of the service to get
 	 * @return The requested Service
-	 * @should return the same object when called multiple times for the same class
+	 * <strong>Should</strong> return the same object when called multiple times for the same class
 	 */
 	public static <T> T getService(Class<? extends T> cls) {
 		return getServiceContext().getService(cls);
@@ -1116,10 +1142,10 @@ public class Context {
 		ValidateUtil.setDisableValidation(disableValidation);
 
 		PersonName.setFormat(Context.getAdministrationService().getGlobalProperty(
-		    OpenmrsConstants.GLOBAL_PROPERTY_LAYOUT_NAME_FORMAT));
+				OpenmrsConstants.GLOBAL_PROPERTY_LAYOUT_NAME_FORMAT));
 
 		Allergen.setOtherNonCodedConceptUuid(Context.getAdministrationService().getGlobalProperty(
-		    OpenmrsConstants.GP_ALLERGEN_OTHER_NON_CODED_UUID));
+				OpenmrsConstants.GP_ALLERGEN_OTHER_NON_CODED_UUID));
 	}
 
 	/**
@@ -1150,7 +1176,7 @@ public class Context {
 				DatabaseUpdater.executeChangelog();
 			} else {
 				throw new DatabaseUpdateException(
-				        "Database updates are required.  Call Context.updateDatabase() before .startup() to continue.");
+						"Database updates are required.  Call Context.updateDatabase() before .startup() to continue.");
 			}
 		}
 	}
@@ -1176,7 +1202,7 @@ public class Context {
 	 *
 	 * @return SimpleDateFormat for the user's current locale
 	 * @see org.openmrs.util.OpenmrsUtil#getDateFormat(Locale)
-	 * @should return a pattern with four y characters in it
+	 * <strong>Should</strong> return a pattern with four y characters in it
 	 */
 	public static SimpleDateFormat getDateFormat() {
 		return OpenmrsUtil.getDateFormat(getLocale());
@@ -1188,7 +1214,7 @@ public class Context {
 	 *
 	 * @return SimpleDateFormat for the user's current locale
 	 * @see org.openmrs.util.OpenmrsUtil#getTimeFormat(Locale)
-	 * @should return a pattern with two h characters in it
+	 * <strong>Should</strong> return a pattern with two h characters in it
 	 */
 	public static SimpleDateFormat getTimeFormat() {
 		return OpenmrsUtil.getTimeFormat(getLocale());
@@ -1200,7 +1226,7 @@ public class Context {
 	 *
 	 * @return SimpleDateFormat for the user's current locale
 	 * @see org.openmrs.util.OpenmrsUtil#getDateTimeFormat(Locale)
-	 * @should return a pattern with four y characters and two h characters in it
+	 * <strong>Should</strong> return a pattern with four y characters and two h characters in it
 	 */
 	public static SimpleDateFormat getDateTimeFormat() {
 		return OpenmrsUtil.getDateTimeFormat(getLocale());

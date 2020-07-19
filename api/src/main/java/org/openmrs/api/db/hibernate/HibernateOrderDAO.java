@@ -9,13 +9,6 @@
  */
 package org.openmrs.api.db.hibernate;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Calendar;
-
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Criteria;
 import org.hibernate.FlushMode;
@@ -26,7 +19,7 @@ import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Disjunction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Restrictions;
-import org.hibernate.metadata.ClassMetadata;
+import org.hibernate.criterion.SimpleExpression;
 import org.hibernate.transform.DistinctRootEntityResultTransformer;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
@@ -47,6 +40,15 @@ import org.openmrs.util.OpenmrsConstants;
 import org.openmrs.util.OpenmrsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.persistence.metamodel.Attribute;
+import javax.persistence.metamodel.EntityType;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 
 /**
@@ -171,6 +173,12 @@ public class HibernateOrderDAO implements OrderDAO {
 		if (searchCriteria.getOrderTypes() != null && !searchCriteria.getOrderTypes().isEmpty()) {
 			crit.add(Restrictions.in("orderType", searchCriteria.getOrderTypes()));
 		}
+		if (searchCriteria.getOrderNumber() != null) {
+			crit.add(Restrictions.eq("orderNumber", searchCriteria.getOrderNumber()).ignoreCase());
+		}
+		if (searchCriteria.getAccessionNumber() != null) {
+			crit.add(Restrictions.eq("accessionNumber", searchCriteria.getAccessionNumber()).ignoreCase());
+		}
 		if (searchCriteria.getActivatedOnOrBeforeDate() != null) {
 			// set the date's time to the last millisecond of the date
 			Calendar cal = Calendar.getInstance();
@@ -182,6 +190,68 @@ public class HibernateOrderDAO implements OrderDAO {
 			Calendar cal = Calendar.getInstance();
 			cal.setTime(searchCriteria.getActivatedOnOrAfterDate());
 			crit.add(Restrictions.ge("dateActivated", OpenmrsUtil.firstSecondOfDay(cal.getTime())));
+		}
+		if (searchCriteria.isStopped()) {
+			// an order is considered Canceled regardless of the time when the dateStopped was set
+			crit.add(Restrictions.isNotNull("dateStopped"));
+		}
+		if (searchCriteria.getAutoExpireOnOrBeforeDate() != null) {
+			// set the date's time to the last millisecond of the date
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(searchCriteria.getAutoExpireOnOrBeforeDate());
+			crit.add(Restrictions.le("autoExpireDate", OpenmrsUtil.getLastMomentOfDay(cal.getTime())));
+		}
+        if (searchCriteria.getAction() != null) {
+            crit.add(Restrictions.eq("action", searchCriteria.getAction()));
+        }
+        if (searchCriteria.getExcludeDiscontinueOrders() == true) {
+            crit.add(Restrictions.or(
+                    Restrictions.ne("action", Order.Action.DISCONTINUE),
+                    Restrictions.isNull("action")));
+        }
+        SimpleExpression fulfillerStatusExpr = null;
+        if (searchCriteria.getFulfillerStatus() != null) {
+            fulfillerStatusExpr = Restrictions.eq("fulfillerStatus", searchCriteria.getFulfillerStatus());
+		}
+        Criterion fulfillerStatusCriteria = null;
+        if (searchCriteria.getIncludeNullFulfillerStatus() != null ) {
+            if (searchCriteria.getIncludeNullFulfillerStatus().booleanValue() == true ) {
+                fulfillerStatusCriteria = Restrictions.isNull("fulfillerStatus");
+            } else {
+                fulfillerStatusCriteria = Restrictions.isNotNull("fulfillerStatus");
+            }
+        }
+
+        if (fulfillerStatusExpr != null && fulfillerStatusCriteria != null) {
+            crit.add(Restrictions.or(fulfillerStatusExpr, fulfillerStatusCriteria));
+        } else if (fulfillerStatusExpr != null) {
+            crit.add(fulfillerStatusExpr);
+        } else if ( fulfillerStatusCriteria != null ){
+            crit.add(fulfillerStatusCriteria);
+        }
+
+		if (searchCriteria.getExcludeCanceledAndExpired() == true) {
+			Calendar cal = Calendar.getInstance();
+			// exclude expired orders (include only orders with autoExpireDate = null or autoExpireDate in the future)
+			crit.add(Restrictions.or(
+					Restrictions.isNull("autoExpireDate"),
+					Restrictions.gt("autoExpireDate", cal.getTime())));
+			// exclude Canceled Orders
+			crit.add(Restrictions.or(
+					Restrictions.isNull("dateStopped"),
+					Restrictions.gt("dateStopped", cal.getTime())));
+		}
+		if (searchCriteria.getCanceledOrExpiredOnOrBeforeDate() != null) {
+			// set the date's time to the last millisecond of the date
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(searchCriteria.getCanceledOrExpiredOnOrBeforeDate());
+			crit.add(Restrictions.or(
+					Restrictions.and(
+							Restrictions.isNotNull("dateStopped"),
+							Restrictions.le("dateStopped", OpenmrsUtil.getLastMomentOfDay(cal.getTime()))),
+					Restrictions.and(
+							Restrictions.isNotNull("autoExpireDate"),
+							Restrictions.le("autoExpireDate", OpenmrsUtil.getLastMomentOfDay(cal.getTime())))));
 		}
 		if (!searchCriteria.getIncludeVoided()) {
 			crit.add(Restrictions.eq("voided", false));
@@ -242,7 +312,7 @@ public class HibernateOrderDAO implements OrderDAO {
 		query.setParameter("orderId", order.getOrderId());
 		
 		//prevent hibernate from flushing before fetching the list
-		query.setFlushMode(FlushMode.MANUAL);
+		query.setHibernateFlushMode(FlushMode.MANUAL);
 		
 		return query.list();
 	}
@@ -519,9 +589,10 @@ public class HibernateOrderDAO implements OrderDAO {
 	@Override
 	public boolean isOrderFrequencyInUse(OrderFrequency orderFrequency) {
 		
-		Map<String, ClassMetadata> metadata = sessionFactory.getAllClassMetadata();
-		for (ClassMetadata classMetadata : metadata.values()) {
-			Class<?> entityClass = classMetadata.getMappedClass();
+		Set<EntityType<?>> entities = sessionFactory.getMetamodel().getEntities();
+		
+		for (EntityType<?> entityTpe : entities) {
+			Class<?> entityClass = entityTpe.getJavaType();
 			if (Order.class.equals(entityClass)) {
 				//ignore the org.openmrs.Order class itself
 				continue;
@@ -532,11 +603,10 @@ public class HibernateOrderDAO implements OrderDAO {
 				continue;
 			}
 
-			String[] names = classMetadata.getPropertyNames();
-			for (String name : names) {
-				if (classMetadata.getPropertyType(name).getReturnedClass().equals(OrderFrequency.class)) {
+			for (Attribute<?,?> attribute : entityTpe.getDeclaredAttributes()) {
+				if (attribute.getJavaType().equals(OrderFrequency.class)) {
 					Criteria criteria = sessionFactory.getCurrentSession().createCriteria(entityClass);
-					criteria.add(Restrictions.eq(name, orderFrequency));
+					criteria.add(Restrictions.eq(attribute.getName(), orderFrequency));
 					criteria.setMaxResults(1);
 					if (!criteria.list().isEmpty()) {
 						return true;
@@ -634,5 +704,30 @@ public class HibernateOrderDAO implements OrderDAO {
 		Criteria criteria = sessionFactory.getCurrentSession().createCriteria(Order.class);
 		criteria.add(Restrictions.eq("orderType", orderType));
 		return !criteria.list().isEmpty();
+	}
+	/**
+	 * @see OrderDAO#getOrderGroupsByPatient(Patient)
+	 */
+	@Override
+	public List<OrderGroup> getOrderGroupsByPatient(Patient patient) throws DAOException {
+		if (patient == null) {
+			throw new APIException("Patient cannot be null");
+		}
+		Criteria criteria = sessionFactory.getCurrentSession().createCriteria(OrderGroup.class);
+		criteria.add(Restrictions.eq("patient", patient));
+		return criteria.list();
+	}
+
+	/**
+	 * @see OrderDAO#getOrderGroupsByEncounter(Encounter)
+	 */
+	@Override
+	public List<OrderGroup> getOrderGroupsByEncounter(Encounter encounter) throws DAOException {
+		if (encounter == null) {
+			throw new APIException("Encounter cannot be null");
+		}
+		Criteria criteria = sessionFactory.getCurrentSession().createCriteria(OrderGroup.class);
+		criteria.add(Restrictions.eq("encounter", encounter));
+		return criteria.list();
 	}
 }

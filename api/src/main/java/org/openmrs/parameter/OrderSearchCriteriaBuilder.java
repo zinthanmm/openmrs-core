@@ -9,10 +9,7 @@
  */
 package org.openmrs.parameter;
 
-import org.openmrs.CareSetting;
-import org.openmrs.Concept;
-import org.openmrs.OrderType;
-import org.openmrs.Patient;
+import org.openmrs.*;
 
 import java.util.Collection;
 import java.util.Date;
@@ -31,10 +28,30 @@ public class OrderSearchCriteriaBuilder {
 	private Collection<Concept> concepts;
 
 	private Collection<OrderType> orderTypes;
+	
+	private String accessionNumber;
+	
+	private String orderNumber;
 
 	private Date activatedOnOrBeforeDate;
 
 	private Date activatedOnOrAfterDate;
+
+	private boolean isStopped;
+
+	private Date autoExpireOnOrBeforeDate;
+
+	private Date canceledOrExpiredOnOrBeforeDate;
+
+	private Order.Action action;
+
+	private Order.FulfillerStatus fulfillerStatus;
+
+	private Boolean includeNullFulfillerStatus;
+
+	private boolean excludeCanceledAndExpired;
+
+	private boolean excludeDiscontinueOrders;
 
 	private boolean includeVoided;
 
@@ -75,6 +92,24 @@ public class OrderSearchCriteriaBuilder {
 	}
 
 	/**
+	 * @param accessionNumber the accessionNumber to match on (exact match, case-insensitive)
+	 * @return this builder instance
+	 */
+	public OrderSearchCriteriaBuilder setAccessionNumber(String accessionNumber) {
+		this.accessionNumber = accessionNumber;
+		return (this);
+	}
+
+	/**
+	 * @param orderNumber the orderNumber to match on (exact match, case-insensitive)
+	 * @return this builder instance
+	 */
+	public OrderSearchCriteriaBuilder setOrderNumber(String orderNumber) {
+		this.orderNumber = orderNumber;
+		return (this);
+	}
+	
+	/**
 	 * @param activatedOnOrBeforeDate orders must have dateActivated on or before this date
 	 * @return this builder instance
 	 */
@@ -93,6 +128,76 @@ public class OrderSearchCriteriaBuilder {
 	}
 
 	/**
+	 *
+	 * @param isStopped
+	 * @return this builde instance
+	 */
+	public OrderSearchCriteriaBuilder setIsStopped(boolean isStopped) {
+		this.isStopped = isStopped;
+		return (this);
+	}
+
+	/**
+	 * 
+	 * @param autoExpireOnOrBeforeDate
+	 * @return this builder instance
+	 */
+	public OrderSearchCriteriaBuilder setAutoExpireOnOrBeforeDate(Date autoExpireOnOrBeforeDate) {
+		this.autoExpireOnOrBeforeDate = autoExpireOnOrBeforeDate;
+		return (this);
+	}
+
+	/**
+	 *
+	 * @param canceledOrExpiredOnOrBeforeDate
+	 * @return this builder instance
+	 */
+	public OrderSearchCriteriaBuilder setCanceledOrExpiredOnOrBeforeDate(Date canceledOrExpiredOnOrBeforeDate) {
+		this.canceledOrExpiredOnOrBeforeDate = canceledOrExpiredOnOrBeforeDate;
+		return (this);
+	}
+
+	/**
+     *
+     * @param action
+     * @return this builder instance
+     */
+    public OrderSearchCriteriaBuilder setAction(Order.Action action) {
+        this.action = action;
+        return (this);
+    }
+
+    /**
+	 *
+	 * @param fulfillerStatus
+	 * @return this builder instance
+	 */
+	public OrderSearchCriteriaBuilder setFulfillerStatus(Order.FulfillerStatus fulfillerStatus) {
+		this.fulfillerStatus = fulfillerStatus;
+		return (this);
+	}
+
+	/**
+	 *
+	 * @param includeNullFulfillerStatus
+	 * @return
+	 */
+	public OrderSearchCriteriaBuilder setIncludeNullFulfillerStatus(Boolean includeNullFulfillerStatus) {
+		this.includeNullFulfillerStatus = includeNullFulfillerStatus;
+		return (this);
+	}
+
+	public OrderSearchCriteriaBuilder setExcludeCanceledAndExpired(boolean excludeCanceledAndExpired) {
+		this.excludeCanceledAndExpired = excludeCanceledAndExpired;
+		return (this);
+	}
+
+	public OrderSearchCriteriaBuilder setExcludeDiscontinueOrders(boolean excludeDiscontinueOrders) {
+		this.excludeDiscontinueOrders = excludeDiscontinueOrders;
+		return (this);
+	}
+
+	/**
 	 * @param includeVoided whether to include the voided orders or not
 	 * @return this builder instance
 	 */
@@ -106,8 +211,9 @@ public class OrderSearchCriteriaBuilder {
 	 * @return a new search criteria instance
 	 */
 	public OrderSearchCriteria build() {
-		return new OrderSearchCriteria(patient, careSetting, concepts, orderTypes, activatedOnOrBeforeDate,  
-			activatedOnOrAfterDate, includeVoided);
+		return new OrderSearchCriteria(patient, careSetting, concepts, orderTypes, accessionNumber, orderNumber, activatedOnOrBeforeDate,  
+			activatedOnOrAfterDate, isStopped, autoExpireOnOrBeforeDate, canceledOrExpiredOnOrBeforeDate,
+				action, fulfillerStatus, includeNullFulfillerStatus, excludeCanceledAndExpired, excludeDiscontinueOrders, includeVoided);
 	}
 }
 

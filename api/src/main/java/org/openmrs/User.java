@@ -12,6 +12,7 @@ package org.openmrs;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,14 +36,13 @@ import org.slf4j.LoggerFactory;
  * key-value pairs for either quick info or display specific info that needs to be persisted (like
  * locale preferences, search options, etc)
  */
-public class User extends BaseChangeableOpenmrsMetadata implements java.io.Serializable, Attributable<User> {
+public class User extends BaseOpenmrsObject implements java.io.Serializable, Attributable<User>, Auditable, Retireable {
 	
-	public static final long serialVersionUID = 2L;
+	public static final long serialVersionUID = 2L ;
 	
 	private static final Logger log = LoggerFactory.getLogger(User.class);
 	
 	// Fields
-	
 	private Integer userId;
 	
 	private Person person;
@@ -60,6 +60,22 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	private List<Locale> proficientLocales = null;
 	
 	private String parsedProficientLocalesProperty = "";
+	
+	private User creator;
+	
+	private Date dateCreated;
+	
+	private User changedBy;
+	
+	private Date dateChanged;
+	
+	private boolean retired;
+	
+	private User retiredBy;
+	
+	private Date dateRetired;
+	
+	private String retireReason;
 	
 	// Constructors
 	
@@ -87,9 +103,9 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	}
 	
 	/**
-	 * This method shouldn't be used directly. Use org.openmrs.api.context.Context#hasPrivilege so
-	 * that anonymous/authenticated/proxy privileges are all included Return true if this user has
-	 * the specified privilege
+	 * This method shouldn't be used directly. Use org.openmrs.api.context.Context#hasPrivilege so that
+	 * anonymous/authenticated/proxy privileges are all included Return true if this user has the
+	 * specified privilege
 	 * 
 	 * @param privilege
 	 * @return true/false depending on whether user has specified privilege
@@ -133,8 +149,8 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	 * @param r String name of a role to check
 	 * @param ignoreSuperUser If this is false, then this method will always return true for a
 	 *            superuser.
-	 * @return Returns true if the user has the given role, or if ignoreSuperUser is false and the
-	 *         user is a superUser
+	 * @return Returns true if the user has the given role, or if ignoreSuperUser is false and the user
+	 *         is a superUser
 	 */
 	public boolean hasRole(String r, boolean ignoreSuperUser) {
 		if (!ignoreSuperUser && isSuperUser()) {
@@ -156,11 +172,12 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	
 	/**
 	 * Checks if the user has a given role. Role name comparisons are not case sensitive.
-	 * @param  roleName the name of the role to check
+	 * 
+	 * @param roleName the name of the role to check
 	 * @return true if the user has the given role, else false
-	 * @should return true if the user has the given role
-	 * @should return false if the user does not have the given role
-	 * @should be case insensitive
+	 * <strong>Should</strong> return true if the user has the given role
+	 * <strong>Should</strong> return false if the user does not have the given role
+	 * <strong>Should</strong> be case insensitive
 	 */
 	public boolean containsRole(String roleName) {
 		for (Role role : getAllRoles()) {
@@ -196,8 +213,8 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	// Property accessors
 	
 	/**
-	 * Returns all roles attributed to this user by expanding the role list to include the parents
-	 * of the assigned roles
+	 * Returns all roles attributed to this user by expanding the role list to include the parents of
+	 * the assigned roles
 	 * 
 	 * @return all roles (inherited from parents and given) for this user
 	 */
@@ -282,6 +299,7 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	 * @see org.openmrs.Attributable#findPossibleValues(java.lang.String)
 	 */
 	@Override
+	@Deprecated
 	public List<User> findPossibleValues(String searchText) {
 		try {
 			return Context.getUserService().getUsersByName(searchText, "", false);
@@ -295,6 +313,7 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	 * @see org.openmrs.Attributable#getPossibleValues()
 	 */
 	@Override
+	@Deprecated
 	public List<User> getPossibleValues() {
 		try {
 			return Context.getUserService().getAllUsers();
@@ -420,8 +439,8 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 		return email;
 	}
 	
- 	/**
- 	 * @since 2.2
+	/**
+	 * @since 2.2
 	 * @param email The email to set.
 	 */
 	public void setEmail(String email) {
@@ -467,8 +486,8 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	}
 	
 	/**
-	 * Get prop property from this user's properties. If prop is not found in properties, return
-	 * empty string
+	 * Get prop property from this user's properties. If prop is not found in properties, return empty
+	 * string
 	 * 
 	 * @param prop
 	 * @return property value
@@ -536,7 +555,7 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 	public Set<PersonName> getNames() {
 		return person.getNames();
 	}
-		
+	
 	/**
 	 * Returns a list of Locales for which the User is considered proficient.
 	 * 
@@ -591,4 +610,88 @@ public class User extends BaseChangeableOpenmrsMetadata implements java.io.Seria
 		setUserId(id);
 	}
 	
+	@Override
+	public User getCreator() {
+		return creator;
+	}
+
+	@Override
+	public void setCreator(User creator) {
+		this.creator = creator;
+	}
+	
+    @Override
+	public Date getDateCreated() {
+		return dateCreated;
+	}
+
+	@Override
+	public void setDateCreated(Date dateCreated) {
+		this.dateCreated = dateCreated;
+	}
+
+	@Override
+	public User getChangedBy() {
+		return changedBy;
+	}
+
+	@Override
+	public void setChangedBy(User changedBy) {
+		this.changedBy = changedBy;
+	}
+
+	@Override
+	public Date getDateChanged() {
+		return dateChanged;
+	}
+
+	@Override
+	public void setDateChanged(Date dateChanged) {
+		this.dateChanged = dateChanged;
+	}
+
+	@Override
+	public Boolean isRetired() {
+		return retired;
+	}
+	
+    @Override
+	public Boolean getRetired() {
+		return retired;
+	}
+
+	@Override
+	public void setRetired(Boolean retired) {
+		this.retired = retired;
+	}
+
+	@Override
+	public User getRetiredBy() {
+		return retiredBy;
+	}
+
+	@Override
+	public void setRetiredBy(User retiredBy) {
+		this.retiredBy = retiredBy;
+	}
+
+	@Override
+	public Date getDateRetired() {
+		return dateRetired;
+	}
+
+	@Override
+	public void setDateRetired(Date dateRetired) {
+		this.dateRetired = dateRetired;
+	}
+
+	@Override
+	public String getRetireReason() {
+		return retireReason;
+	}
+
+	@Override
+	public void setRetireReason(String retireReason) {
+		this.retireReason = retireReason;
+	}
 }
